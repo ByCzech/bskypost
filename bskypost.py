@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import argparse
 import requests
-
+import re
 try:
     import ujson as json
 except (ImportError, SyntaxError):
@@ -14,6 +14,7 @@ from argparse import HelpFormatter
 from functools import partial
 
 from datetime import datetime, timezone
+from typing import List, Dict
 
 
 class CustomHelpFormatter(HelpFormatter):
@@ -50,11 +51,79 @@ https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/default_o
 https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/customized_output_format.png
 """
 
+
+def parse_mentions(text: str) -> List[Dict]:
+    spans = []
+    # regex based on: https://atproto.com/specs/handle#handle-identifier-syntax
+    mention_regex = rb"[$|\W](@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
+    text_bytes = text.encode("UTF-8")
+    for m in re.finditer(mention_regex, text_bytes):
+        spans.append({
+            "start": m.start(1),
+            "end": m.end(1),
+            "handle": m.group(1)[1:].decode("UTF-8")
+        })
+    return spans
+
+
+def parse_urls(text: str) -> List[Dict]:
+    spans = []
+    # partial/naive URL regex based on: https://stackoverflow.com/a/3809435
+    # tweaked to disallow some training punctuation
+    url_regex = rb"[$|\W](https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*[-a-zA-Z0-9@%_\+~#//=])?)"
+    text_bytes = text.encode("UTF-8")
+    for m in re.finditer(url_regex, text_bytes):
+        spans.append({
+            "start": m.start(1),
+            "end": m.end(1),
+            "url": m.group(1).decode("UTF-8"),
+        })
+    return spans
+
+# Parse facets from text and resolve the handles to DIDs
+
+
+def parse_facets(text: str) -> List[Dict]:
+    facets = []
+    for m in parse_mentions(text):
+        resp = requests.get(
+            "https://bsky.social/xrpc/com.atproto.identity.resolveHandle",
+            params={"handle": m["handle"]},
+        )
+        # If the handle can't be resolved, just skip it!
+        # It will be rendered as text in the post instead of a link
+        if resp.status_code == 400:
+            continue
+        did = resp.json()["did"]
+        facets.append({
+            "index": {
+                "byteStart": m["start"],
+                "byteEnd": m["end"],
+            },
+            "features": [{"$type": "app.bsky.richtext.facet#mention", "did": did}],
+        })
+    for u in parse_urls(text):
+        facets.append({
+            "index": {
+                "byteStart": u["start"],
+                "byteEnd": u["end"],
+            },
+            "features": [
+                {
+                    "$type": "app.bsky.richtext.facet#link",
+                    # NOTE: URI ("I") not URL ("L")
+                    "uri": u["url"],
+                }
+            ],
+        })
+    return facets
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Send post to Bluesky social network', formatter_class=CustomHelpFormatter)
     parser.add_argument('-v', '--version', action='version',
-                        version='bskypost 1.0')
+                        version='bskypost 1.1')
     parser.add_argument('bsky_handle', metavar='<bsky_handle>',
                         help='Bluesky handle')
     parser.add_argument('app_password', metavar='<app_password>',
@@ -77,6 +146,8 @@ if __name__ == "__main__":
         "text": args.post_text,
         "createdAt": now,
     }
+
+    post["facets"] = parse_facets(post["text"])
 
     resp = requests.post(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
