@@ -130,6 +130,8 @@ if __name__ == "__main__":
                         help='Path to image to be embed into post (arg can be used multiple times)')
     parser.add_argument('-a', '--alt', metavar='<image_alt>', action='append',
                         help='Alternate text for embeded image into post (arg can be used multiple times)')
+    parser.add_argument('-l', '--lang', metavar='<lang>', action='append',
+                        help='Lang of post (arg can be used multiple times)')
     parser.add_argument('bsky_handle', metavar='<bsky_handle>',
                         help='Bluesky handle')
     parser.add_argument('app_password', metavar='<app_password>',
@@ -188,6 +190,9 @@ if __name__ == "__main__":
                 'alt': args.alt[idx] if len(args.alt) > idx else "",
                 'image': blob
             })
+
+    if args.lang:
+        post['langs'] = args.lang
 
     resp = requests.post(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
