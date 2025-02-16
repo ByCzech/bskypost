@@ -2,6 +2,8 @@
 import argparse
 import requests
 import re
+import magic
+
 try:
     import ujson as json
 except (ImportError, SyntaxError):
@@ -124,6 +126,10 @@ if __name__ == "__main__":
         description='Send post to Bluesky social network', formatter_class=CustomHelpFormatter)
     parser.add_argument('-v', '--version', action='version',
                         version='bskypost 1.1')
+    parser.add_argument('-i', '--image', metavar='<image>', action='append',
+                        help='Path to image to be embed into post (arg can be used multiple times)')
+    parser.add_argument('-a', '--alt', metavar='<image_alt>', action='append',
+                        help='Alternate text for embeded image into post (arg can be used multiple times)')
     parser.add_argument('bsky_handle', metavar='<bsky_handle>',
                         help='Bluesky handle')
     parser.add_argument('app_password', metavar='<app_password>',
@@ -148,6 +154,40 @@ if __name__ == "__main__":
     }
 
     post["facets"] = parse_facets(post["text"])
+
+    if args.image:
+        post["embed"] = {
+            "$type": "app.bsky.embed.images",
+            "images": []
+        }
+
+        for idx, img in enumerate(args.image):
+            with open(img, 'rb') as f:
+                img_bytes = f.read()
+
+            # this size limit is specified in the app.bsky.embed.images lexicon
+            if len(img_bytes) > 1000000:
+                raise Exception(
+                    f"image file {img} size is too large. 1000000 bytes maximum, got: {len(img_bytes)}"
+                )
+
+            # TODO: strip EXIF metadata here, if needed
+
+            resp = requests.post(
+                "https://bsky.social/xrpc/com.atproto.repo.uploadBlob",
+                headers={
+                    "Content-Type": magic.from_buffer(img_bytes, mime=True),
+                    "Authorization": "Bearer " + session["accessJwt"],
+                },
+                data=img_bytes,
+            )
+            resp.raise_for_status()
+            blob = resp.json()["blob"]
+
+            post["embed"]["images"].append({
+                'alt': args.alt[idx] if len(args.alt) > idx else "",
+                'image': blob
+            })
 
     resp = requests.post(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
