@@ -125,7 +125,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Send post to Bluesky social network', formatter_class=CustomHelpFormatter)
     parser.add_argument('-v', '--version', action='version',
-                        version='bskypost 1.1')
+                        version='bskypost 1.2')
     parser.add_argument('-i', '--image', metavar='<image>', action='append',
                         help='Path to image to be embed into post (arg can be used multiple times)')
     parser.add_argument('-a', '--alt', metavar='<image_alt>', action='append',
