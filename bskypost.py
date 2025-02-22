@@ -52,6 +52,8 @@ The difference can be seen here:
 https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/default_output.png
 https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/customized_output_format.png
 """
+
+
 def parse_tags(text: str) -> List[Dict]:
     spans = []
     # regex based on: https://stackoverflow.com/questions/38506598/regular-expression-to-match-hashtag-but-not-hashtag-with-semicolon
@@ -64,6 +66,7 @@ def parse_tags(text: str) -> List[Dict]:
             "tag": m.group(1)[1:].decode("UTF-8")
         })
     return spans
+
 
 def parse_mentions(text: str) -> List[Dict]:
     spans = []
