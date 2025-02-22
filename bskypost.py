@@ -52,7 +52,18 @@ The difference can be seen here:
 https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/default_output.png
 https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/customized_output_format.png
 """
-
+def parse_tags(text: str) -> List[Dict]:
+    spans = []
+    # regex based on: https://stackoverflow.com/questions/38506598/regular-expression-to-match-hashtag-but-not-hashtag-with-semicolon
+    mention_regex = rb"[$|\W]\B(\#[a-zA-Z]+\b)(?!;)"
+    text_bytes = text.encode("UTF-8")
+    for m in re.finditer(mention_regex, text_bytes):
+        spans.append({
+            "start": m.start(1),
+            "end": m.end(1),
+            "tag": m.group(1)[1:].decode("UTF-8")
+        })
+    return spans
 
 def parse_mentions(text: str) -> List[Dict]:
     spans = []
@@ -115,6 +126,19 @@ def parse_facets(text: str) -> List[Dict]:
                     "$type": "app.bsky.richtext.facet#link",
                     # NOTE: URI ("I") not URL ("L")
                     "uri": u["url"],
+                }
+            ],
+        })
+    for t in parse_tags(text):
+        facets.append({
+            "index": {
+                "byteStart": t["start"],
+                "byteEnd": t["end"],
+            },
+            "features": [
+                {
+                    "$type": "app.bsky.richtext.facet#tag",
+                    "tag": t["tag"],
                 }
             ],
         })
