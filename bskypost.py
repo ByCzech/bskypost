@@ -57,7 +57,7 @@ https://github.com/alex1701c/Screenshots/blob/master/PythonArgparseCLI/customize
 def parse_tags(text: str) -> List[Dict]:
     spans = []
     # regex based on: https://stackoverflow.com/questions/38506598/regular-expression-to-match-hashtag-but-not-hashtag-with-semicolon
-    mention_regex = rb"[$|\W]\B(\#[a-zA-Z]+\b)(?!;)"
+    mention_regex = rb"[$|\W]\B(\#[a-zA-Z0-9]+\b)(?!;)"
     text_bytes = text.encode("UTF-8")
     for m in re.finditer(mention_regex, text_bytes):
         spans.append({
